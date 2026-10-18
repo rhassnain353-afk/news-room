@@ -1,0 +1,18 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+    function isAdmin() { return request.auth != null && exists(/databases/$(db)/documents/admins/$(request.auth.uid)); }
+    match /admins/{uid} { allow get: if request.auth != null && request.auth.uid == uid; allow write: if false; }
+    match /articles/{id} { allow read: if resource.data.status == 'published' || isAdmin(); allow write: if isAdmin(); }
+    match /categories/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /siteSettings/{id} { allow read: if true; allow write: if isAdmin(); }
+    match /ads/{id} { allow read: if resource.data.enabled == true || isAdmin(); allow write: if isAdmin(); }
+    match /newsletterSubscribers/{id} {
+      allow create: if request.resource.data.keys().hasOnly(['email','at']) && request.resource.data.email is string && request.resource.data.email.size() < 200 && request.resource.data.email.matches('^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$');
+      allow read, update, delete: if isAdmin();
+    }
+    match /{coll}/{id} {
+      allow read, write: if isAdmin() && coll in ['sources','automationSettings','jobRuns','verificationReports','auditLogs','storyGroups','runRequests'];
+    }
+  }
+}
